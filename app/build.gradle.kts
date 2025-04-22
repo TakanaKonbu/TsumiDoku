@@ -53,6 +53,8 @@ dependencies {
     // Compose Navigation で Hilt ViewModel を使う場合に必要
     implementation(libs.androidx.hilt.navigation.compose)
 
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.0") // バージョンは適宜確認
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
