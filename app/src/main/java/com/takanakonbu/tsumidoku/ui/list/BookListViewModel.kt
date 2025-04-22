@@ -1,6 +1,6 @@
 package com.takanakonbu.tsumidoku.ui.list
 
-import android.app.Application // Application をインポート
+import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -12,20 +12,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.takanakonbu.tsumidoku.data.Book
 import com.takanakonbu.tsumidoku.data.BookRepository
+import com.takanakonbu.tsumidoku.data.BookStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers // IOディスパッチャを使うため
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext // withContext を使うため
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 
 @HiltViewModel
 class BookListViewModel @Inject constructor(
     private val bookRepository: BookRepository,
-    private val application: Application // Application (Contextを提供) を Hilt から注入
+    private val application: Application
 ) : ViewModel() {
 
     val books: StateFlow<List<Book>> = bookRepository.getAllBooks()
@@ -37,11 +38,10 @@ class BookListViewModel @Inject constructor(
 
     fun addBook(title: String, author: String, memo: String, imageUri: Uri?) {
         viewModelScope.launch {
-            // 画像変換処理はIO処理なので、IOディスパッチャで行う
             val coverImageByteArray: ByteArray? = if (imageUri != null) {
                 withContext(Dispatchers.IO) {
-                    // ヘルパー関数を呼び出して ByteArray を取得
-                    createThumbnailByteArray(application, imageUri, 300, 450) // 例: 300x450 にリサイズ
+                    // 正しい引数を渡して呼び出し
+                    createThumbnailByteArray(application, imageUri, 300, 450)
                 }
             } else {
                 null
@@ -51,9 +51,51 @@ class BookListViewModel @Inject constructor(
                 title = title,
                 author = author,
                 memo = memo.ifBlank { null },
-                coverImage = coverImageByteArray // 変換後の ByteArray を設定
+                coverImage = coverImageByteArray
             )
             bookRepository.insertBook(newBook)
+        }
+    }
+
+    fun updateBook(
+        id: String,
+        title: String,
+        author: String,
+        memo: String,
+        status: BookStatus,
+        newImageUri: Uri?
+    ) {
+        viewModelScope.launch {
+            val currentBook = books.value.find { it.id == id } ?: return@launch
+
+            val coverImageByteArray: ByteArray? = if (newImageUri != null) {
+                withContext(Dispatchers.IO) {
+                    // 正しい引数を渡して呼び出し
+                    createThumbnailByteArray(application, newImageUri, 300, 450)
+                }
+            } else {
+                currentBook.coverImage
+            }
+
+            val readDate: Long? = if (currentBook.status != BookStatus.READ && status == BookStatus.READ) {
+                System.currentTimeMillis()
+            } else if (status != BookStatus.READ) {
+                null
+            } else {
+                currentBook.readDate
+            }
+
+            val updatedBook = Book(
+                id = id,
+                title = title,
+                author = author,
+                memo = memo.ifBlank { null },
+                status = status,
+                coverImage = coverImageByteArray,
+                addedDate = currentBook.addedDate,
+                readDate = readDate
+            )
+            bookRepository.updateBook(updatedBook)
         }
     }
 
@@ -75,40 +117,38 @@ class BookListViewModel @Inject constructor(
      * @param quality JPEG圧縮品質 (0-100)
      * @return リサイズされた画像のByteArray、またはエラー時にnull
      */
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    // ここに正しい引数を定義します
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
     private fun createThumbnailByteArray(
         context: Context,
         uri: Uri,
         reqWidth: Int,
         reqHeight: Int,
-        quality: Int = 80 // JPEG品質 (デフォルト80)
+        quality: Int = 80
     ): ByteArray? {
         return try {
-            // 1. まず画像のサイズだけを読み込む
             val options = BitmapFactory.Options().apply {
-                inJustDecodeBounds = true // Bitmapをメモリに読み込まず、サイズ情報だけ取得
+                inJustDecodeBounds = true
             }
+            // 引数 uri を使用
             BitmapFactory.decodeStream(context.contentResolver.openInputStream(uri), null, options)
 
-            // 2. 適切なサンプリングサイズを計算 (メモリ節約のため)
+            // 引数 reqWidth, reqHeight を使用
             options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
 
-            // 3. サンプリングサイズを設定してBitmapを読み込む
             options.inJustDecodeBounds = false
+            // 引数 uri を使用
             val bitmap = BitmapFactory.decodeStream(context.contentResolver.openInputStream(uri), null, options)
 
-            // 4. 必要であればさらにリサイズ (オプション)
-            // ここでは読み込み時のサンプリングである程度小さくなっている想定だが、
-            // より正確なサイズにしたい場合や、アスペクト比を維持したい場合は追加処理を行う
-            // val scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true) // 例
-
-            // 5. ByteArrayOutputStreamを使ってJPEG形式でByteArrayに変換
             ByteArrayOutputStream().use { stream ->
+                // 引数 quality を使用
                 bitmap?.compress(Bitmap.CompressFormat.JPEG, quality, stream)
                 stream.toByteArray()
             }
         } catch (e: Exception) {
-            e.printStackTrace() // エラーログ出力
-            null // エラー時はnullを返す
+            e.printStackTrace()
+            null
         }
     }
 
@@ -122,13 +162,10 @@ class BookListViewModel @Inject constructor(
         if (height > reqHeight || width > reqWidth) {
             val halfHeight: Int = height / 2
             val halfWidth: Int = width / 2
-            // Calculate the largest inSampleSize value that is a power of 2 and keeps both
-            // height and width larger than the requested height and width.
             while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
                 inSampleSize *= 2
             }
         }
         return inSampleSize
     }
-    // --- ヘルパー関数ここまで ---
 }
