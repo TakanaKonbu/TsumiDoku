@@ -256,7 +256,7 @@ private fun statusToString(status: BookStatus): String {
     return when (status) {
         BookStatus.UNREAD -> "未読"
         BookStatus.READING -> "読書中"
-        BookStatus.READ -> "読了"
+        BookStatus.READ -> "読破"
     }
 }
 

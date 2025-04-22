@@ -14,6 +14,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -27,6 +28,18 @@ class BookListViewModel @Inject constructor(
 ) : ViewModel() {
 
     val books: StateFlow<List<Book>> = bookRepository.getAllBooks()
+        // --- Flow の結果を加工する map 演算子を追加 ---
+        .map { bookList ->
+            // ステータスが READ でないものを先に、READ のものを後に並び替える
+            // 各グループ内では元の addedDate 降順を維持するように安定ソートを行う
+            bookList.sortedWith(compareBy { it.status == BookStatus.READ })
+            // もし読了済みの中でさらに読了日順などでソートしたい場合は、
+            // .sortedWith(compareBy<Book> { it.status == BookStatus.READ }
+            //     .thenByDescending { if (it.status == BookStatus.READ) it.readDate else it.addedDate } // 例
+            // )
+            // のように comparator を工夫する
+        }
+        // --------------------------------------------
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000L),
