@@ -1,6 +1,7 @@
 package com.takanakonbu.tsumidoku.ui.list
 
 import android.graphics.BitmapFactory
+import android.net.Uri // ViewModelに渡すためインポート
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,7 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
-import androidx.compose.runtime.* // remember, mutableStateOf, getValue, setValue をインポート
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,7 +25,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.takanakonbu.tsumidoku.R
 import com.takanakonbu.tsumidoku.data.Book
 import com.takanakonbu.tsumidoku.data.BookStatus
-// remember は既にインポートされている
 import com.takanakonbu.tsumidoku.ui.add.AddBookDialog // 作成したダイアログをインポート
 import com.takanakonbu.tsumidoku.ui.theme.PrimaryColor
 
@@ -34,10 +34,7 @@ fun BookListScreen(
     viewModel: BookListViewModel = hiltViewModel()
 ) {
     val books by viewModel.books.collectAsStateWithLifecycle()
-
-    // --- ダイアログ表示状態管理 ---
     var showAddDialog by remember { mutableStateOf(false) }
-    // --------------------------
 
     Scaffold(
         topBar = {
@@ -45,38 +42,31 @@ fun BookListScreen(
                 title = { Text(stringResource(id = R.string.app_name)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = PrimaryColor,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer // onPrimary の方が適切かも？
+                    titleContentColor = Color.White
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
-                // --- FABクリックでダイアログ表示 ---
                 onClick = { showAddDialog = true },
-                // ------------------------------
                 containerColor = PrimaryColor,
-                contentColor = Color.White // FABの背景色に合わせたコンテンツ色
+                contentColor = Color.White
             ) {
-                Icon(
-                    Icons.Filled.Add, contentDescription = "書籍を追加"
-                )
+                Icon(Icons.Filled.Add, contentDescription = "書籍を追加")
             }
         }
     ) { innerPadding ->
 
-        // --- ダイアログの表示制御 ---
         if (showAddDialog) {
             AddBookDialog(
-                onDismissRequest = { showAddDialog = false }, // ダイアログ外タップなどで閉じる
-                onAddClick = { title, author, memo ->
-                    viewModel.addBook(title, author, memo) // ViewModelに関数を呼び出す
-                    showAddDialog = false // ダイアログを閉じる
+                onDismissRequest = { showAddDialog = false },
+                onAddClick = { title, author, memo, imageUri ->
+                    viewModel.addBook(title, author, memo, imageUri)
+                    showAddDialog = false
                 }
             )
         }
-        // --------------------------
 
-        // --- リスト表示 (変更なし) ---
         if (books.isEmpty()) {
             Column(
                 modifier = Modifier
@@ -106,11 +96,8 @@ fun BookListScreen(
                 }
             }
         }
-        // --------------------------
     }
 }
-
-// BookItem と statusToString は変更なし
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,36 +112,34 @@ fun BookItem(
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        onClick = onItemClick // カード全体をクリック可能に
+        onClick = onItemClick
     ) {
         Row(
             modifier = Modifier.padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 書影表示 (もしあれば)
             book.coverImage?.let { imageData ->
-                val bitmap = remember(imageData) { // imageData が変わった時だけ再計算
+                val bitmap = remember(imageData) {
                     BitmapFactory.decodeByteArray(imageData, 0, imageData.size)
                 }
                 bitmap?.let {
                     Image(
                         bitmap = it.asImageBitmap(),
                         contentDescription = "Book Cover",
-                        modifier = Modifier.size(60.dp, 80.dp), // サイズ指定
-                        contentScale = ContentScale.Crop // 表示方法
+                        modifier = Modifier.size(60.dp, 80.dp),
+                        contentScale = ContentScale.Crop
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                 }
             }
 
-            // 書籍情報 (タイトル、著者、ステータス)
-            Column(modifier = Modifier.weight(1f)) { // 残りのスペースを埋める
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = book.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1, // 1行に制限
-                    overflow = TextOverflow.Ellipsis // はみ出たら ... で表示
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = book.author,
@@ -163,17 +148,16 @@ fun BookItem(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "ステータス: ${statusToString(book.status)}", // ステータス表示
+                    text = "ステータス: ${statusToString(book.status)}",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
 
-            // 削除ボタン
             IconButton(onClick = onDeleteClick) {
                 Icon(
                     imageVector = Icons.Filled.Delete,
                     contentDescription = "Delete Book",
-                    tint = MaterialTheme.colorScheme.error // エラー色などを使う
+                    tint = MaterialTheme.colorScheme.error
                 )
             }
         }

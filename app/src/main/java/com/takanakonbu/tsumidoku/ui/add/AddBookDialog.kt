@@ -1,10 +1,27 @@
 package com.takanakonbu.tsumidoku.ui.add // パッケージ名は適宜調整
 
+import android.graphics.Bitmap // Bitmapプレビュー用
+import android.graphics.ImageDecoder // Bitmapプレビュー用 (API 28+)
+import android.net.Uri // URIを扱うため
+import android.os.Build
+import android.provider.MediaStore // Bitmapプレビュー用 (古いAPI用)
+import androidx.activity.compose.rememberLauncherForActivityResult // ランチャーのため
+import androidx.activity.result.PickVisualMediaRequest // フォトピッカーリクエスト
+import androidx.activity.result.contract.ActivityResultContracts // フォトピッカーコントラクト
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable // 画像選択領域をクリック可能に
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext // Context取得のため
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog // ダイアログ表示のため
 
@@ -12,29 +29,39 @@ import androidx.compose.ui.window.Dialog // ダイアログ表示のため
  * 書籍追加用ダイアログの Composable
  *
  * @param onDismissRequest ダイアログを閉じるよう要求されたときの処理
- * @param onAddClick 「追加」ボタンがクリックされたときの処理 (入力されたタイトル, 著者名, メモを渡す)
+ * @param onAddClick 「追加」ボタンがクリックされたときの処理 (入力されたタイトル, 著者名, メモ, 選択された画像のURIを渡す)
  */
-@OptIn(ExperimentalMaterial3Api::class) // TextField などに必要
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddBookDialog(
     onDismissRequest: () -> Unit,
-    // 追加ボタンクリック時に、入力された文字列をコールバックで渡す
-    onAddClick: (title: String, author: String, memo: String) -> Unit
+    onAddClick: (title: String, author: String, memo: String, imageUri: Uri?) -> Unit // imageUri を追加
 ) {
-    // ダイアログ内の入力状態を保持 (remember を使う)
     var title by remember { mutableStateOf("") }
     var author by remember { mutableStateOf("") }
     var memo by remember { mutableStateOf("") }
-    // 入力検証のための状態 (任意)
     var isTitleError by remember { mutableStateOf(false) }
     var isAuthorError by remember { mutableStateOf(false) }
+
+    // --- 画像選択関連 ---
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    val context = LocalContext.current
+
+    // フォトピッカーを起動するためのランチャーを準備
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri ->
+            selectedImageUri = uri
+        }
+    )
+    // --------------------
 
     Dialog(onDismissRequest = onDismissRequest) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .wrapContentHeight(), // 高さはコンテンツに合わせる
-            shape = MaterialTheme.shapes.medium // 角丸など
+                .wrapContentHeight(),
+            shape = MaterialTheme.shapes.medium
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("書籍の追加", style = MaterialTheme.typography.headlineSmall)
@@ -45,10 +72,10 @@ fun AddBookDialog(
                     value = title,
                     onValueChange = {
                         title = it
-                        isTitleError = it.isBlank() // 空ならエラー
+                        isTitleError = it.isBlank()
                     },
                     label = { Text("タイトル *") },
-                    isError = isTitleError, // エラー状態
+                    isError = isTitleError,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -62,7 +89,7 @@ fun AddBookDialog(
                     value = author,
                     onValueChange = {
                         author = it
-                        isAuthorError = it.isBlank() // 空ならエラー
+                        isAuthorError = it.isBlank()
                     },
                     label = { Text("著者名 *") },
                     isError = isAuthorError,
@@ -79,16 +106,65 @@ fun AddBookDialog(
                     value = memo,
                     onValueChange = { memo = it },
                     label = { Text("メモ") },
-                    modifier = Modifier.fillMaxWidth().height(100.dp) // 高さを指定
+                    modifier = Modifier.fillMaxWidth().height(100.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // TODO: 書影選択機能 (後で実装)
+                // --- 書影選択エリア ---
+                Text("書影 (任意)", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally) // ★ 追加
+                        .size(100.dp, 150.dp)
+                        .border(1.dp, Color.Gray)
+                        .clickable {
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (selectedImageUri == null) {
+                        Icon(
+                            imageVector = Icons.Default.AccountBox,
+                            contentDescription = "書影を選択",
+                            modifier = Modifier.size(48.dp),
+                            tint = Color.Gray
+                        )
+                    } else {
+                        val bitmap: Bitmap? = remember(selectedImageUri) {
+                            try {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, selectedImageUri!!))
+                                } else {
+                                    @Suppress("DEPRECATION")
+                                    MediaStore.Images.Media.getBitmap(context.contentResolver, selectedImageUri)
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                null
+                            }
+                        }
+                        bitmap?.let {
+                            Image(
+                                bitmap = it.asImageBitmap(),
+                                contentDescription = "選択された書影",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } ?: run {
+                            Text("表示エラー", color = Color.Gray)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                // --------------------
 
-                // ボタン (追加、キャンセル)
+                // --- ボタン ---
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End // 右寄せ
+                    horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismissRequest) {
                         Text("キャンセル")
@@ -96,19 +172,17 @@ fun AddBookDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            // 入力検証
                             isTitleError = title.isBlank()
                             isAuthorError = author.isBlank()
                             if (!isTitleError && !isAuthorError) {
-                                onAddClick(title, author, memo) // ViewModel に通知
+                                onAddClick(title, author, memo, selectedImageUri)
                             }
-                        },
-                        // タイトルと著者が入力されていない場合はボタンを無効化 (任意)
-                        // enabled = title.isNotBlank() && author.isNotBlank()
+                        }
                     ) {
                         Text("追加")
                     }
                 }
+                // ----------------
             }
         }
     }
