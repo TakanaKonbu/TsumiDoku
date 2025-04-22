@@ -41,8 +41,7 @@ fun BookListScreen(
 
     // --- 編集対象の書籍を保持する状態 ---
     var editingBook by remember { mutableStateOf<Book?>(null) }
-    // ---------------------------------
-
+    var bookToDelete by remember { mutableStateOf<Book?>(null) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -95,7 +94,19 @@ fun BookListScreen(
                 }
             )
         }
-        // -------------------------
+
+        // --- 削除確認ダイアログ表示 ---
+        bookToDelete?.let { book -> // bookToDelete が null でなければ表示
+            DeleteConfirmationDialog(
+                dialogTitle = "削除確認",
+                dialogText = "『${book.title}』を削除しますか？",
+                onConfirm = {
+                    viewModel.deleteBook(book) // ViewModel の削除関数を呼ぶ
+                    // bookToDelete = null // onDismiss で null にするのでここでは不要
+                },
+                onDismiss = { bookToDelete = null } // ダイアログを閉じるときに null に戻す
+            )
+        }
 
         // --- リスト表示 ---
         if (books.isEmpty()) {
@@ -136,10 +147,11 @@ fun BookListScreen(
                     }
                     // ----------------------------------
 
-                    // BookItem は変更なしでそのまま表示
                     BookItem(
                         book = book,
-                        onDeleteClick = { viewModel.deleteBook(book) },
+                        // --- onDeleteClick で状態をセット ---
+                        onDeleteClick = { bookToDelete = book }, // 直接削除せず、状態を更新
+                        // -----------------------------------
                         onItemClick = { editingBook = book }
                     )
                 }
@@ -154,15 +166,14 @@ fun BookListScreen(
 @Composable
 fun BookItem(
     book: Book,
-    onDeleteClick: () -> Unit,
+    onDeleteClick: () -> Unit, // 引数なしのラムダに変更 (呼び出し側で book を特定するため)
     onItemClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // --- 読了済みのスタイルを定義 ---
     val isRead = book.status == BookStatus.READ
-    val textColor = if (isRead) Color.Gray else LocalContentColor.current // 読了ならグレー、それ以外はデフォルト
-    val textDecoration = if (isRead) TextDecoration.LineThrough else null // 読了なら打ち消し線
-    // ------------------------------
+    val textColor = if (isRead) Color.Gray else LocalContentColor.current
+    val textDecoration = if (isRead) TextDecoration.LineThrough else null
+
 
     Card(
         modifier = modifier
@@ -170,7 +181,10 @@ fun BookItem(
             .padding(vertical = 4.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isRead) 1.dp else 2.dp), // 読了済みの Elevation を少し下げる (任意)
         onClick = onItemClick,
-        // colors = CardDefaults.cardColors(...) // 必要なら背景色も変更
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFFFFFFF), // 背景色をテーマから取得
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant // コンテンツの色をテーマから取得
+        )
     ) {
         Row(
             modifier = Modifier.padding(8.dp),
@@ -223,15 +237,13 @@ fun BookItem(
             // ---------------------------------
 
             // --- 削除ボタン (変更なし) ---
-            IconButton(onClick = onDeleteClick) {
+            IconButton(onClick = onDeleteClick) { // 渡された onDeleteClick ラムダをそのまま呼ぶ
                 Icon(
                     imageVector = Icons.Filled.Delete,
                     contentDescription = "Delete Book",
-                    // tint = MaterialTheme.colorScheme.error // 元のコードの PrimaryColor でも良い
-                    tint = if (isRead) Color.Gray else MaterialTheme.colorScheme.error // 読了ならボタンもグレーに (任意)
+                    tint = if (isRead) Color.Gray else PrimaryColor
                 )
             }
-            // --------------------------
         }
     }
 }
