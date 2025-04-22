@@ -144,7 +144,11 @@ fun BookItem(
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        onClick = onItemClick // ここが呼ばれる
+        onClick = onItemClick, // ここが呼ばれる
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFFFFFFF), // 背景色をテーマから取得
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant // コンテンツの色をテーマから取得
+        )
     ) {
         Row(
             modifier = Modifier.padding(8.dp),
@@ -189,7 +193,7 @@ fun BookItem(
                 Icon(
                     imageVector = Icons.Filled.Delete,
                     contentDescription = "Delete Book",
-                    tint = MaterialTheme.colorScheme.error
+                    tint = PrimaryColor
                 )
             }
         }
