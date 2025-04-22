@@ -1,6 +1,7 @@
 package com.takanakonbu.tsumidoku.data
 
 import android.content.Context
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -10,31 +11,32 @@ import javax.inject.Singleton
 
 /**
  * Hilt の DI モジュール
- * データベース関連 (AppDatabase, BookDao) のインスタンスを提供する方法を定義する
+ * データベース関連とリポジトリのインスタンスを提供する方法を定義する
  */
 @Module
-@InstallIn(SingletonComponent::class) // アプリケーション全体で単一のインスタンスを提供
-object DatabaseModule {
+@InstallIn(SingletonComponent::class)
+abstract class DatabaseModule {
 
-    /**
-     * AppDatabase のシングルトンインスタンスを提供する
-     * @param context アプリケーションコンテキスト (Hiltが自動で注入)
-     * @return AppDatabase のインスタンス
-     */
-    @Singleton // アプリ内で常に同じインスタンスを返すようにする
-    @Provides
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
-        return AppDatabase.getDatabase(context)
-    }
+    // BookRepositoryImpl は @Inject constructor を持つため Hilt は生成方法を知っている
+    // この @Binds により、BookRepository (インターフェース) が要求されたときに
+    // Hilt が BookRepositoryImpl のインスタンスを注入するようになる
+    @Singleton
+    @Binds
+    abstract fun bindBookRepository(impl: BookRepositoryImpl): BookRepository
 
-    /**
-     * BookDao のインスタンスを提供する
-     * AppDatabase に依存するため、引数で AppDatabase を受け取る (Hiltが自動で注入)
-     * @param appDatabase AppDatabase のインスタンス
-     * @return BookDao のインスタンス
-     */
-    @Provides
-    fun provideBookDao(appDatabase: AppDatabase): BookDao {
-        return appDatabase.bookDao()
+    // @Provides を含むメソッドは static であるか、
+    // 非抽象モジュール (object) に属する必要があるため companion object を使用
+    companion object {
+        @Singleton
+        @Provides
+        fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+            return AppDatabase.getDatabase(context)
+        }
+
+        // AppDatabase に依存
+        @Provides
+        fun provideBookDao(appDatabase: AppDatabase): BookDao {
+            return appDatabase.bookDao()
+        }
     }
 }
