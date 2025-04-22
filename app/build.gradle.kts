@@ -41,9 +41,10 @@ android {
 }
 
 dependencies {
-    val room_version = "2.7.0"
+    val room_version = "2.6.1" // 安定版を指定
     implementation("androidx.room:room-runtime:$room_version")
-    ksp("androidx.room:room-compiler:2.5.0")
+    implementation("androidx.room:room-ktx:$room_version") // KTX を追加
+    ksp("androidx.room:room-compiler:$room_version") // バージョンを統一
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
