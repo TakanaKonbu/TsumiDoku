@@ -3,8 +3,6 @@ package com.takanakonbu.tsumidoku.ui.add // パッケージ名は適宜調整
 import android.graphics.Bitmap // Bitmapプレビュー用
 import android.graphics.ImageDecoder // Bitmapプレビュー用 (API 28+)
 import android.net.Uri // URIを扱うため
-import android.os.Build
-import android.provider.MediaStore // Bitmapプレビュー用 (古いAPI用)
 import androidx.activity.compose.rememberLauncherForActivityResult // ランチャーのため
 import androidx.activity.result.PickVisualMediaRequest // フォトピッカーリクエスト
 import androidx.activity.result.contract.ActivityResultContracts // フォトピッカーコントラクト
@@ -31,7 +29,6 @@ import androidx.compose.ui.window.Dialog // ダイアログ表示のため
  * @param onDismissRequest ダイアログを閉じるよう要求されたときの処理
  * @param onAddClick 「追加」ボタンがクリックされたときの処理 (入力されたタイトル, 著者名, メモ, 選択された画像のURIを渡す)
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddBookDialog(
     onDismissRequest: () -> Unit,
@@ -135,12 +132,7 @@ fun AddBookDialog(
                     } else {
                         val bitmap: Bitmap? = remember(selectedImageUri) {
                             try {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, selectedImageUri!!))
-                                } else {
-                                    @Suppress("DEPRECATION")
-                                    MediaStore.Images.Media.getBitmap(context.contentResolver, selectedImageUri)
-                                }
+                                ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, selectedImageUri!!))
                             } catch (e: Exception) {
                                 e.printStackTrace()
                                 null

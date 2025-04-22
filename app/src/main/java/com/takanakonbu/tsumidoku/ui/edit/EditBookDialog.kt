@@ -5,8 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.net.Uri
-import android.os.Build
-import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,7 +39,6 @@ import com.takanakonbu.tsumidoku.data.BookStatus // BookStatus Enum
  * @param onDismissRequest ダイアログを閉じるよう要求されたときの処理
  * @param onSaveClick 「保存」ボタンがクリックされたときの処理 (更新後のタイトル, 著者名, メモ, ステータス, 新しい画像URI を渡す)
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditBookDialog(
     book: Book, // 編集対象の書籍を受け取る
@@ -133,7 +130,7 @@ fun EditBookDialog(
                         .selectableGroup()
                         .fillMaxWidth()
                 ) {
-                    BookStatus.values().forEach { bookStatus ->
+                    BookStatus.entries.forEach { bookStatus ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -267,12 +264,7 @@ private fun statusToString(status: BookStatus): String {
 private fun uriToBitmap(context: Context, uri: Uri?): Bitmap? {
     if (uri == null) return null
     return try {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
-        } else {
-            @Suppress("DEPRECATION")
-            MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
-        }
+        ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
     } catch (e: Exception) {
         e.printStackTrace()
         null

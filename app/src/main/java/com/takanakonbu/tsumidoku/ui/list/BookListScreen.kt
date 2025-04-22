@@ -1,7 +1,6 @@
 package com.takanakonbu.tsumidoku.ui.list
 
 import android.graphics.BitmapFactory
-import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -133,7 +132,6 @@ fun BookListScreen(
 }
 
 // --- BookItem と statusToString は変更なし ---
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookItem(
     book: Book,
