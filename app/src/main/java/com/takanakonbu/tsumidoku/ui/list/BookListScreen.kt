@@ -119,12 +119,13 @@ fun BookItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             book.coverImage?.let { imageData ->
+                // imageData (ByteArray) が変更されたときだけBitmapを再生成
                 val bitmap = remember(imageData) {
                     BitmapFactory.decodeByteArray(imageData, 0, imageData.size)
                 }
                 bitmap?.let {
                     Image(
-                        bitmap = it.asImageBitmap(),
+                        bitmap = it.asImageBitmap(), // Bitmap を Image Composable 用に変換
                         contentDescription = "Book Cover",
                         modifier = Modifier.size(60.dp, 80.dp),
                         contentScale = ContentScale.Crop
