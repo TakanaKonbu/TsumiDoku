@@ -1,15 +1,18 @@
-package com.takanakonbu.tsumidoku.ui.list
+package com.takanakonbu.tsumidoku.ui.list // パッケージ名は適宜調整してください
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.takanakonbu.tsumidoku.data.Book // Book エンティティ
 import com.takanakonbu.tsumidoku.data.BookRepository // 作成したリポジトリインターフェース
+// BookStatus など、Bookオブジェクト作成に必要なものをインポート
+import com.takanakonbu.tsumidoku.data.BookStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map // 必要に応じて map を使う
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+// import java.util.UUID // Bookのデフォルト引数でIDが生成されるため、ここでは不要
 import javax.inject.Inject
 
 /**
@@ -28,12 +31,31 @@ class BookListViewModel @Inject constructor(
     val books: StateFlow<List<Book>> = bookRepository.getAllBooks()
         .stateIn(
             scope = viewModelScope, // ViewModel の Coroutine スコープ
-            // started = SharingStarted.Lazily, // 画面が表示されてから収集を開始する場合
             started = SharingStarted.WhileSubscribed(5000L), // 画面がサブスクライブしている間 + 5秒間収集を維持
             initialValue = emptyList() // 初期値は空リスト
         )
 
-    // ----- 書籍削除処理を追加する場合の例 -----
+    /**
+     * 新しい書籍をデータベースに追加する
+     * @param title 書籍タイトル
+     * @param author 著者名
+     * @param memo メモ (空の場合あり)
+     */
+    fun addBook(title: String, author: String, memo: String) {
+        viewModelScope.launch {
+            // 新しいBookオブジェクトを作成 (IDと追加日時は自動生成、ステータスはデフォルト)
+            val newBook = Book(
+                // id = UUID.randomUUID().toString(), // Bookのデフォルト引数で生成される
+                title = title,
+                author = author,
+                memo = memo.ifBlank { null }, // 空文字列なら null に変換
+                // coverImage, status, addedDate, readDate はデフォルト値を使用
+            )
+            bookRepository.insertBook(newBook)
+            // 必要であれば追加成功/失敗などのUIイベント通知処理を追加
+        }
+    }
+
     /**
      * 指定された書籍を削除する
      * @param book 削除対象の書籍オブジェクト
@@ -45,6 +67,4 @@ class BookListViewModel @Inject constructor(
             // 必要であれば削除成功/失敗などのUIイベント通知処理を追加
         }
     }
-
-
 }
