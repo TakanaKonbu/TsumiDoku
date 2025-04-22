@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.devtools.ksp") // 追加
+    alias(libs.plugins.hilt.android.gradle) // ← Hiltプラグインを適用
 }
 
 android {
@@ -46,6 +47,11 @@ dependencies {
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version") // KTX を追加
     ksp("androidx.room:room-compiler:$room_version") // バージョンを統一
+
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler) // Hiltのコード生成もKSPで行う
+    // Compose Navigation で Hilt ViewModel を使う場合に必要
+    implementation(libs.androidx.hilt.navigation.compose)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
