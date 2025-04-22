@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.devtools.ksp")
+    id("com.google.devtools.ksp") // 追加
 }
 
 android {
@@ -41,6 +41,7 @@ android {
 }
 
 dependencies {
+    // 追加
     val room_version = "2.6.1" // 安定版を指定
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version") // KTX を追加
