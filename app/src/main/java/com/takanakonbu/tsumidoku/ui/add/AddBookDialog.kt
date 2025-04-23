@@ -22,6 +22,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext // Context取得のため
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog // ダイアログ表示のため
+import com.takanakonbu.tsumidoku.ui.theme.PrimaryColor
 
 /**
  * 書籍追加用ダイアログの Composable
@@ -58,7 +59,10 @@ fun AddBookDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight(),
-            shape = MaterialTheme.shapes.medium
+            shape = MaterialTheme.shapes.medium,
+            colors = CardDefaults.cardColors(
+                containerColor = Color.White // ここで背景色を白に指定
+            )
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("書籍の追加", style = MaterialTheme.typography.headlineSmall)
@@ -112,7 +116,7 @@ fun AddBookDialog(
                 Spacer(modifier = Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
-                        .align(Alignment.CenterHorizontally) // ★ 追加
+                        .align(Alignment.CenterHorizontally)
                         .size(100.dp, 150.dp)
                         .border(1.dp, Color.Gray)
                         .clickable {
@@ -132,7 +136,14 @@ fun AddBookDialog(
                     } else {
                         val bitmap: Bitmap? = remember(selectedImageUri) {
                             try {
-                                ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, selectedImageUri!!))
+                                // API 28以上でのみ利用可能
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, selectedImageUri!!))
+                                } else {
+                                    // API 28未満の代替処理 (非推奨ですが、互換性のために)
+                                    @Suppress("DEPRECATION")
+                                    android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, selectedImageUri)
+                                }
                             } catch (e: Exception) {
                                 e.printStackTrace()
                                 null
@@ -146,6 +157,7 @@ fun AddBookDialog(
                                 modifier = Modifier.fillMaxSize()
                             )
                         } ?: run {
+                            // エラー時などのフォールバック表示
                             Text("表示エラー", color = Color.Gray)
                         }
                     }
@@ -169,7 +181,10 @@ fun AddBookDialog(
                             if (!isTitleError && !isAuthorError) {
                                 onAddClick(title, author, memo, selectedImageUri)
                             }
-                        }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PrimaryColor
+                        )
                     ) {
                         Text("追加")
                     }

@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.takanakonbu.tsumidoku.data.Book // Book データクラス
 import com.takanakonbu.tsumidoku.data.BookStatus // BookStatus Enum
+import com.takanakonbu.tsumidoku.ui.theme.PrimaryColor
 
 /**
  * 書籍編集用ダイアログの Composable
@@ -75,7 +76,10 @@ fun EditBookDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight(), // 高さはコンテンツに合わせる
-            shape = MaterialTheme.shapes.medium
+            shape = MaterialTheme.shapes.medium,
+            colors = CardDefaults.cardColors(
+                containerColor = Color.White // ここで背景色を白に指定
+            )
         ) {
             // 長くなる可能性があるので縦スクロール可能にする
             Column(modifier = Modifier
@@ -145,7 +149,10 @@ fun EditBookDialog(
                         ) {
                             RadioButton(
                                 selected = (bookStatus == status),
-                                onClick = null // Row の selectable で処理するので null
+                                onClick = null, // Row の selectable で処理
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = PrimaryColor // 選択時の色を赤に設定
+                                )
                             )
                             Text(
                                 text = statusToString(bookStatus), // 表示文字列
@@ -237,7 +244,10 @@ fun EditBookDialog(
                                 // 更新後の情報をコールバックで渡す
                                 onSaveClick(title, author, memo, status, newSelectedImageUri)
                             }
-                        }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PrimaryColor
+                        )
                     ) {
                         Text("保存")
                     }
