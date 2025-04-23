@@ -42,6 +42,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.material.icons.extended)
     // 追加
     val room_version = "2.6.1" // 安定版を指定
     implementation("androidx.room:room-runtime:$room_version")
