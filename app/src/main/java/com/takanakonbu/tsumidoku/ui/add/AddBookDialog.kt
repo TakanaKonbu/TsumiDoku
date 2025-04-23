@@ -11,7 +11,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable // 画像選択領域をクリック可能に
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -128,7 +128,7 @@ fun AddBookDialog(
                 ) {
                     if (selectedImageUri == null) {
                         Icon(
-                            imageVector = Icons.Default.AccountBox,
+                            imageVector = Icons.Default.Book,
                             contentDescription = "書影を選択",
                             modifier = Modifier.size(48.dp),
                             tint = Color.Gray

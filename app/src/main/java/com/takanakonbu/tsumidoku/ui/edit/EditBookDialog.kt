@@ -17,7 +17,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -217,7 +217,7 @@ fun EditBookDialog(
                     } else {
                         // 表示する画像がない場合
                         Icon(
-                            imageVector = Icons.Default.AccountBox,
+                            imageVector = Icons.Default.Book,
                             contentDescription = "書影を選択または変更",
                             modifier = Modifier.size(48.dp),
                             tint = Color.Gray
