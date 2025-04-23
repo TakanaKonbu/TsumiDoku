@@ -56,6 +56,8 @@ dependencies {
 
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.0") // バージョンは適宜確認
 
+    implementation("com.google.android.gms:play-services-ads:23.1.0")
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

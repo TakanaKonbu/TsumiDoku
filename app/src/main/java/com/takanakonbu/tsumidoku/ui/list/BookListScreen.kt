@@ -1,5 +1,8 @@
 package com.takanakonbu.tsumidoku.ui.list
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -11,6 +14,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Videocam // ★ アイコン追加
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -25,6 +30,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.google.android.gms.ads.AdError
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.FullScreenContentCallback
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.OnUserEarnedRewardListener
+import com.google.android.gms.ads.rewarded.RewardedAd
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.takanakonbu.tsumidoku.R
 import com.takanakonbu.tsumidoku.data.Book
 import com.takanakonbu.tsumidoku.data.BookStatus
@@ -49,12 +61,107 @@ fun BookListScreen(
     var showSortMenu by remember { mutableStateOf(false) }
     var showFilterMenu by remember { mutableStateOf(false) }
 
+    // --- ★ 広告確認ダイアログ用の State ★ ---
+    var showConfirmAdDialog by remember { mutableStateOf(false) }
+    // --------------------------------------
+
+    // --- リワード広告関連の State ---
+    var rewardedAd by remember { mutableStateOf<RewardedAd?>(null) }
+    var isLoadingAd by remember { mutableStateOf(false) }
+    // ------------------------------------
+
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
+    // --- Activityを取得するヘルパー関数 ---
+    fun Context.getActivity(): Activity? = when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.getActivity()
+        else -> null
+    }
+    val activity = context.getActivity()
+
+    // --- リワード広告を読み込む関数 ---
+    fun loadRewardedAd() {
+        if (rewardedAd == null && !isLoadingAd && activity != null) {
+            isLoadingAd = true
+            val adRequest = AdRequest.Builder().build()
+            val adUnitId = "ca-app-pub-3940256099942544/5224354917" // <- テスト用ID
+            // val adUnitId = "ca-app-pub-2836653067032260/YOUR_REWARDED_AD_UNIT_ID" // <- 本番用ID
+
+            RewardedAd.load(activity, adUnitId, adRequest,
+                object : RewardedAdLoadCallback() {
+                    override fun onAdFailedToLoad(adError: LoadAdError) {
+                        isLoadingAd = false
+                        rewardedAd = null
+                        scope.launch {
+                            snackbarHostState.showSnackbar("広告の読み込みに失敗: ${adError.message}")
+                        }
+                        println("Ad failed to load: ${adError.message}")
+                    }
+
+                    override fun onAdLoaded(ad: RewardedAd) {
+                        isLoadingAd = false
+                        rewardedAd = ad
+                        println("Ad loaded successfully")
+
+                        rewardedAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                            override fun onAdDismissedFullScreenContent() {
+                                rewardedAd = null
+                                loadRewardedAd()
+                            }
+
+                            override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                                rewardedAd = null
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("広告の表示に失敗しました")
+                                }
+                            }
+
+                            override fun onAdShowedFullScreenContent() {
+                                println("Ad showed fullscreen content.")
+                            }
+                        }
+                    }
+                })
+        }
+    }
+
+    // --- ★ リワード広告を表示する関数 ★ ---
+    fun showRewardAd() {
+        if (activity != null && rewardedAd != null) {
+            rewardedAd?.show(activity, OnUserEarnedRewardListener { rewardItem ->
+                val rewardAmount = rewardItem.amount
+                val rewardType = rewardItem.type
+                println("User earned the reward: $rewardAmount $rewardType")
+                // リワード獲得 -> ダイアログ表示
+                showAddDialog = true
+                // 使用済み広告を破棄し、次を読み込む
+                rewardedAd = null
+                loadRewardedAd()
+            })
+        } else if (isLoadingAd) {
+            scope.launch {
+                snackbarHostState.showSnackbar("広告を準備中です…")
+            }
+        } else {
+            scope.launch {
+                snackbarHostState.showSnackbar("広告の準備ができていません。再試行します。")
+            }
+            loadRewardedAd() // 再度読み込み試行
+        }
+    }
+    // --------------------------------------
+
+    // --- 画面表示時に広告を事前読み込み ---
+    LaunchedEffect(Unit) {
+        loadRewardedAd()
+    }
+    // --------------------------------------
 
     Scaffold(
-        topBar = {
+        topBar = { /* (変更なし) */
             TopAppBar(
                 title = { Text(stringResource(id = R.string.app_name)) },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -95,7 +202,7 @@ fun BookListScreen(
                             onSortOrderSelected = { sortOrder ->
                                 viewModel.changeSortOrder(sortOrder)
                                 showSortMenu = false
-                                val sortText = sortOrderToString(sortOrder) // ★ Composable 外で呼び出しOK
+                                val sortText = sortOrderToString(sortOrder)
                                 scope.launch {
                                     snackbarHostState.showSnackbar("ソート順: $sortText")
                                 }
@@ -107,7 +214,19 @@ fun BookListScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showAddDialog = true },
+                onClick = {
+                    // --- ★ FABクリック時のロジック変更 ★ ---
+                    val currentBookCount = books.size
+
+                    if (currentBookCount < 3) {
+                        // 3冊未満なら直接AddBookDialog表示
+                        showAddDialog = true
+                    } else {
+                        // 3冊以上なら広告視聴確認ダイアログ表示
+                        showConfirmAdDialog = true
+                    }
+                    // ----------------------------------------
+                },
                 containerColor = PrimaryColor,
                 contentColor = Color.White
             ) {
@@ -117,7 +236,7 @@ fun BookListScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
 
-        // --- ダイアログ表示 (変更なし) ---
+        // --- ダイアログ表示 ---
         if (showAddDialog) {
             AddBookDialog(
                 onDismissRequest = { showAddDialog = false },
@@ -128,7 +247,7 @@ fun BookListScreen(
             )
         }
         editingBook?.let { bookToEdit ->
-            EditBookDialog(
+            EditBookDialog(/* (変更なし) */
                 book = bookToEdit,
                 onDismissRequest = { editingBook = null },
                 onSaveClick = { title, author, memo, status, newImageUri ->
@@ -145,7 +264,7 @@ fun BookListScreen(
             )
         }
         bookToDelete?.let { book ->
-            DeleteConfirmationDialog(
+            DeleteConfirmationDialog(/* (変更なし) */
                 dialogTitle = "削除確認",
                 dialogText = "『${book.title}』を削除しますか？",
                 onConfirm = {
@@ -155,7 +274,25 @@ fun BookListScreen(
             )
         }
 
+        // --- ★ 広告視聴確認ダイアログの表示 ★ ---
+        if (showConfirmAdDialog) {
+            ConfirmRewardAdDialog(
+                onConfirm = {
+                    // 「はい」が押されたら確認ダイアログを閉じ、広告表示処理へ
+                    showConfirmAdDialog = false
+                    showRewardAd() // 広告表示関数を呼び出す
+                },
+                onDismiss = {
+                    // 「キャンセル」が押されたらダイアログを閉じるだけ
+                    showConfirmAdDialog = false
+                }
+            )
+        }
+        // --------------------------------------
+
+        // --- リスト表示 ---
         Column(modifier = Modifier.padding(innerPadding)) {
+            /* (変更なし) */
             if (books.isEmpty()) {
                 Column(
                     modifier = Modifier
@@ -164,7 +301,6 @@ fun BookListScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     val message = if (currentFilterStatus != null) {
-                        // ★ statusToString を直接呼び出す
                         "「${statusToString(currentFilterStatus!!)}」の書籍はありません。"
                     } else {
                         "まだ書籍が登録されていません。"
@@ -193,12 +329,39 @@ fun BookListScreen(
     }
 }
 
+// --- ★ 広告視聴確認ダイアログのComposable ★ ---
 @Composable
-fun SortDropdownMenu(
-    expanded: Boolean,
-    onDismissRequest: () -> Unit,
-    currentSortOrder: SortOrder,
-    onSortOrderSelected: (SortOrder) -> Unit
+fun ConfirmRewardAdDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Filled.Videocam, contentDescription = null) }, // 動画アイコン
+        title = { Text(text = "確認") },
+        text = { Text(text = "登録可能上限(3冊)を超えています。\n短い動画を見て追加登録しますか？") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("はい")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("キャンセル")
+            }
+        }
+    )
+}
+// --------------------------------------------
+
+// --- 以下、変更なし ---
+
+@Composable
+fun SortDropdownMenu(/* (変更なし) */
+                     expanded: Boolean,
+                     onDismissRequest: () -> Unit,
+                     currentSortOrder: SortOrder,
+                     onSortOrderSelected: (SortOrder) -> Unit
 ) {
     DropdownMenu(
         expanded = expanded,
@@ -208,7 +371,7 @@ fun SortDropdownMenu(
             DropdownMenuItem(
                 text = {
                     Text(
-                        text = sortOrderToString(sortOrder), // ★ Composable 内での呼び出しOK
+                        text = sortOrderToString(sortOrder),
                         fontWeight = if (sortOrder == currentSortOrder) FontWeight.Bold else FontWeight.Normal
                     )
                 },
@@ -219,11 +382,11 @@ fun SortDropdownMenu(
 }
 
 @Composable
-fun FilterDropdownMenu(
-    expanded: Boolean,
-    onDismissRequest: () -> Unit,
-    currentFilter: BookStatus?,
-    onFilterSelected: (BookStatus?) -> Unit
+fun FilterDropdownMenu(/* (変更なし) */
+                       expanded: Boolean,
+                       onDismissRequest: () -> Unit,
+                       currentFilter: BookStatus?,
+                       onFilterSelected: (BookStatus?) -> Unit
 ) {
     DropdownMenu(
         expanded = expanded,
@@ -242,7 +405,7 @@ fun FilterDropdownMenu(
             DropdownMenuItem(
                 text = {
                     Text(
-                        text = statusToString(status), // ★ Composable 内での呼び出しOK
+                        text = statusToString(status),
                         fontWeight = if (status == currentFilter) FontWeight.Bold else FontWeight.Normal
                     )
                 },
@@ -252,8 +415,7 @@ fun FilterDropdownMenu(
     }
 }
 
-// SortOrder を表示用文字列に変換するヘルパー関数
-fun sortOrderToString(sortOrder: SortOrder): String {
+fun sortOrderToString(sortOrder: SortOrder): String {/* (変更なし) */
     return when (sortOrder) {
         SortOrder.ADDED_DATE_DESC -> "追加日が新しい順"
         SortOrder.ADDED_DATE_ASC -> "追加日が古い順"
@@ -265,103 +427,100 @@ fun sortOrderToString(sortOrder: SortOrder): String {
 }
 
 @Composable
-fun BookItem(
-    book: Book,
-    onDeleteClick: () -> Unit,
-    onItemClick: () -> Unit,
-    modifier: Modifier = Modifier
+fun BookItem(/* (変更なし) */
+             book: Book,
+             onDeleteClick: () -> Unit,
+             onItemClick: () -> Unit,
+             modifier: Modifier = Modifier
 ) {
-    val isRead = book.status == BookStatus.READ // [cite: 361]
-    val isReading = book.status == BookStatus.READING // ★ 読書中かどうかの状態を追加
-    val textColor = if (isRead) Color.Gray else LocalContentColor.current // [cite: 361]
-    val textDecoration = if (isRead) TextDecoration.LineThrough else null // [cite: 362]
+    val isRead = book.status == BookStatus.READ
+    val isReading = book.status == BookStatus.READING
+    val textColor = if (isRead) Color.Gray else LocalContentColor.current
+    val textDecoration = if (isRead) TextDecoration.LineThrough else null
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp), // [cite: 363]
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isRead) 1.dp else 2.dp), // [cite: 363]
-        onClick = onItemClick, // [cite: 363]
+            .padding(vertical = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isRead) 1.dp else 2.dp),
+        onClick = onItemClick,
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFFFFFFF), // [cite: 364]
-            contentColor = LocalContentColor.current // [cite: 364]
+            containerColor = Color(0xFFFFFFFF),
+            contentColor = LocalContentColor.current
         )
     ) {
         Row(
-            modifier = Modifier.padding(8.dp), // [cite: 365]
-            verticalAlignment = Alignment.CenterVertically // [cite: 365]
+            modifier = Modifier.padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            book.coverImage?.let { imageData -> // [cite: 366]
+            book.coverImage?.let { imageData ->
                 val bitmap = remember(imageData) {
                     BitmapFactory.decodeByteArray(imageData, 0, imageData.size)
-                } // [cite: 366]
+                }
                 bitmap?.let {
                     Image(
-                        bitmap = it.asImageBitmap(), // [cite: 367]
-                        contentDescription = "Book Cover", // [cite: 367]
-                        modifier = Modifier.size(60.dp, 80.dp), // [cite: 367]
-                        contentScale = ContentScale.Crop, // [cite: 368]
-                        alpha = if (isRead) 0.6f else 1.0f // [cite: 368]
+                        bitmap = it.asImageBitmap(),
+                        contentDescription = "Book Cover",
+                        modifier = Modifier.size(60.dp, 80.dp),
+                        contentScale = ContentScale.Crop,
+                        alpha = if (isRead) 0.6f else 1.0f
                     )
-                    Spacer(modifier = Modifier.width(8.dp)) // [cite: 369]
+                    Spacer(modifier = Modifier.width(8.dp))
                 }
             }
 
-            Column(modifier = Modifier.weight(1f)) { // [cite: 369]
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = book.title, // [cite: 370]
-                    style = MaterialTheme.typography.titleMedium, // [cite: 370]
-                    fontWeight = FontWeight.Bold, // [cite: 370]
-                    maxLines = 1, // [cite: 370]
-                    overflow = TextOverflow.Ellipsis, // [cite: 371]
-                    color = textColor, // [cite: 371]
-                    textDecoration = textDecoration // [cite: 371]
+                    text = book.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = textColor,
+                    textDecoration = textDecoration
                 )
                 Text(
-                    text = book.author, // [cite: 372]
-                    style = MaterialTheme.typography.bodyMedium, // [cite: 372]
-                    maxLines = 1, // [cite: 372]
-                    overflow = TextOverflow.Ellipsis, // [cite: 372]
-                    color = textColor, // [cite: 373]
-                    textDecoration = textDecoration // [cite: 373]
+                    text = book.author,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = textColor,
+                    textDecoration = textDecoration
                 )
                 Text(
-                    // ★★★ statusToString を直接呼び出す ★★★
-                    text = "ステータス: ${statusToString(book.status)}", // [cite: 374]
-                    style = MaterialTheme.typography.bodySmall, // [cite: 374]
-                    color = textColor, // [cite: 374]
-                    textDecoration = textDecoration // [cite: 375]
+                    text = "ステータス: ${statusToString(book.status)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = textColor,
+                    textDecoration = textDecoration
                 )
             }
 
-            // ★★★ ここから変更 ★★★
-            // ステータスが「読書中」の場合、本のアイコンを表示
             if (isReading) {
                 Icon(
-                    imageVector = Icons.Filled.Book, // 本のアイコン
+                    imageVector = Icons.Filled.Book,
                     contentDescription = "読書中",
-                    tint = PrimaryColor // 任意の色を指定
+                    tint = PrimaryColor
                 )
-                Spacer(modifier = Modifier.width(4.dp)) // アイコンと削除ボタンの間にスペースを追加
+                Spacer(modifier = Modifier.width(4.dp))
             }
-            // ★★★ 変更ここまで ★★★
 
-            IconButton(onClick = onDeleteClick) { // [cite: 376]
+            IconButton(onClick = onDeleteClick) {
                 Icon(
-                    imageVector = Icons.Filled.Delete, // [cite: 377]
-                    contentDescription = "Delete Book", // [cite: 377]
-                    tint = if (isRead) Color.Gray else PrimaryColor // [cite: 377]
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = "Delete Book",
+                    tint = if (isRead) Color.Gray else PrimaryColor
                 )
             }
         }
     }
 }
 
-// ★★★ @Composable アノテーションを削除 ★★★
-fun statusToString(status: BookStatus): String {
+fun statusToString(status: BookStatus): String {/* (変更なし) */
     return when (status) {
         BookStatus.UNREAD -> "未読"
         BookStatus.READING -> "読書中"
         BookStatus.READ -> "読破"
     }
 }
+
+// DeleteConfirmationDialog は別ファイルにある想定
