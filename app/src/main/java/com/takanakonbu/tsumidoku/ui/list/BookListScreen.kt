@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.*
@@ -270,73 +271,86 @@ fun BookItem(
     onItemClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isRead = book.status == BookStatus.READ
-    val textColor = if (isRead) Color.Gray else LocalContentColor.current
-    val textDecoration = if (isRead) TextDecoration.LineThrough else null
+    val isRead = book.status == BookStatus.READ // [cite: 361]
+    val isReading = book.status == BookStatus.READING // ★ 読書中かどうかの状態を追加
+    val textColor = if (isRead) Color.Gray else LocalContentColor.current // [cite: 361]
+    val textDecoration = if (isRead) TextDecoration.LineThrough else null // [cite: 362]
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isRead) 1.dp else 2.dp),
-        onClick = onItemClick,
+            .padding(vertical = 4.dp), // [cite: 363]
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isRead) 1.dp else 2.dp), // [cite: 363]
+        onClick = onItemClick, // [cite: 363]
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFFFFFFF),
-            contentColor = LocalContentColor.current
+            containerColor = Color(0xFFFFFFFF), // [cite: 364]
+            contentColor = LocalContentColor.current // [cite: 364]
         )
     ) {
         Row(
-            modifier = Modifier.padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(8.dp), // [cite: 365]
+            verticalAlignment = Alignment.CenterVertically // [cite: 365]
         ) {
-            book.coverImage?.let { imageData ->
+            book.coverImage?.let { imageData -> // [cite: 366]
                 val bitmap = remember(imageData) {
                     BitmapFactory.decodeByteArray(imageData, 0, imageData.size)
-                }
+                } // [cite: 366]
                 bitmap?.let {
                     Image(
-                        bitmap = it.asImageBitmap(),
-                        contentDescription = "Book Cover",
-                        modifier = Modifier.size(60.dp, 80.dp),
-                        contentScale = ContentScale.Crop,
-                        alpha = if (isRead) 0.6f else 1.0f
+                        bitmap = it.asImageBitmap(), // [cite: 367]
+                        contentDescription = "Book Cover", // [cite: 367]
+                        modifier = Modifier.size(60.dp, 80.dp), // [cite: 367]
+                        contentScale = ContentScale.Crop, // [cite: 368]
+                        alpha = if (isRead) 0.6f else 1.0f // [cite: 368]
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(8.dp)) // [cite: 369]
                 }
             }
 
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f)) { // [cite: 369]
                 Text(
-                    text = book.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = textColor,
-                    textDecoration = textDecoration
+                    text = book.title, // [cite: 370]
+                    style = MaterialTheme.typography.titleMedium, // [cite: 370]
+                    fontWeight = FontWeight.Bold, // [cite: 370]
+                    maxLines = 1, // [cite: 370]
+                    overflow = TextOverflow.Ellipsis, // [cite: 371]
+                    color = textColor, // [cite: 371]
+                    textDecoration = textDecoration // [cite: 371]
                 )
                 Text(
-                    text = book.author,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = textColor,
-                    textDecoration = textDecoration
+                    text = book.author, // [cite: 372]
+                    style = MaterialTheme.typography.bodyMedium, // [cite: 372]
+                    maxLines = 1, // [cite: 372]
+                    overflow = TextOverflow.Ellipsis, // [cite: 372]
+                    color = textColor, // [cite: 373]
+                    textDecoration = textDecoration // [cite: 373]
                 )
                 Text(
                     // ★★★ statusToString を直接呼び出す ★★★
-                    text = "ステータス: ${statusToString(book.status)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = textColor,
-                    textDecoration = textDecoration
+                    text = "ステータス: ${statusToString(book.status)}", // [cite: 374]
+                    style = MaterialTheme.typography.bodySmall, // [cite: 374]
+                    color = textColor, // [cite: 374]
+                    textDecoration = textDecoration // [cite: 375]
                 )
             }
 
-            IconButton(onClick = onDeleteClick) {
+            // ★★★ ここから変更 ★★★
+            // ステータスが「読書中」の場合、本のアイコンを表示
+            if (isReading) {
                 Icon(
-                    imageVector = Icons.Filled.Delete,
-                    contentDescription = "Delete Book",
-                    tint = if (isRead) Color.Gray else PrimaryColor
+                    imageVector = Icons.Filled.Book, // 本のアイコン
+                    contentDescription = "読書中",
+                    tint = PrimaryColor // 任意の色を指定
+                )
+                Spacer(modifier = Modifier.width(4.dp)) // アイコンと削除ボタンの間にスペースを追加
+            }
+            // ★★★ 変更ここまで ★★★
+
+            IconButton(onClick = onDeleteClick) { // [cite: 376]
+                Icon(
+                    imageVector = Icons.Filled.Delete, // [cite: 377]
+                    contentDescription = "Delete Book", // [cite: 377]
+                    tint = if (isRead) Color.Gray else PrimaryColor // [cite: 377]
                 )
             }
         }
